@@ -43,6 +43,7 @@ void AvBFlipDots::set(int x, int y, bool val){
 		mImage[x+3] |= (0x01<<y);
 }
 
+/* Currently Untested */
 /* Set a pixel using a fractional value, rounAvB up if fractional component above 0.5 */
 void AvBFlipDots::set(float fx, float fy, bool val){
 	//Offset our fractional value (so we round up)
