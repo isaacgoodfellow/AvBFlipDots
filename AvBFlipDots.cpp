@@ -15,16 +15,14 @@
 
 	Roadmap:
 
-	Get Lines Rendering
-	Get Rectangles Rendering
-	Allow for fractional values to be drawn
-	Get EllipsoiAvB Rendering
-	Support 2 Panels
+	Support Transition Effects
 	Support N Panels
+
 */
 
 void AvBFlipDots::setup(int refresh){
 	mRefreshRate = refresh;
+	mDrawMode = kNormal;
 }
 
 void AvBFlipDots::renderAndWait(){
@@ -84,16 +82,30 @@ void AvBFlipDots::stamp( int offx, int offy, int** arr, int w, int h){
 	}
 }
 
-void AvBFlipDots::set(float x, float y, char color){
-	set((int)x,(int)y,color);
+void AvBFlipDots::fill(char color){
+	mWriteColor = color;
 }
 
-void AvBFlipDots::set(int x,int y, char color){
+void drawMode(DrawMode mode){
+	mDrawMode = mode;
+}
+
+void AvBFlipDots::set(float x, float y){
+	set((int)x,(int)y,mWriteColor);
+}
+
+void AvBFlipDots::set(int x,int y){
 	if(x<0 || x>27 || y<0 || y>13) return;
-	mImage[x][y] = color;
+	switch (mDrawMode) {
+		case kInvert:
+		mImage[x][y] = (mWriteColor==1) ? ((mImage[x][y]+1)%2) : mImage[x][y];
+		break;
+		default:
+		mImage[x][y] = mWriteColor;
+	}
 }
 
-void AvBFlipDots::line(int x1,int y1,int const x2,int const y2, char color){
+void AvBFlipDots::line(int x1,int y1,int const x2,int const y2){
 	int delta_x(x2 - x1);
  // if x1 == x2, then it does not matter what we set here
  signed char const ix((delta_x > 0) - (delta_x < 0));
@@ -104,7 +116,7 @@ void AvBFlipDots::line(int x1,int y1,int const x2,int const y2, char color){
  signed char const iy((delta_y > 0) - (delta_y < 0));
  delta_y = abs(delta_y) << 1;
 
- set(x1, y1, color);
+ set(x1, y1);
 
  if (delta_x >= delta_y)
  {
@@ -123,7 +135,7 @@ void AvBFlipDots::line(int x1,int y1,int const x2,int const y2, char color){
 				 error += delta_y;
 				 x1 += ix;
 
-				 set(x1, y1, color);
+				 set(x1, y1);
 		 }
  }
  else
@@ -143,23 +155,23 @@ void AvBFlipDots::line(int x1,int y1,int const x2,int const y2, char color){
 				 error += delta_x;
 				 y1 += iy;
 
-				 set(x1, y1, color);
+				 set(x1, y1);
 		 }
  }
 }
 
-void AvBFlipDots::rect(int x1,int y1,int const w,int const h, char color){
+void AvBFlipDots::rect(int x1,int y1,int const w,int const h){
 	//Top
-	line(x1,y1,w,y1,color);
+	line(x1,y1,w,y1);
 	//Bottom
-	line(x1,h,w,h,color);
+	line(x1,h,w,h);
 	//Left
-	line(x1,y1,x1,h,color);
+	line(x1,y1,x1,h);
 	//Right
-	line(w,y1,w,h,color);
+	line(w,y1,w,h);
 }
 
-void AvBFlipDots::circle(int x0, int y0, int radius, char color)
+void AvBFlipDots::circle(int x0, int y0, int radius)
 {
         int x = 0;
         int y = radius;
@@ -168,10 +180,10 @@ void AvBFlipDots::circle(int x0, int y0, int radius, char color)
 
         while(y >= 0) {
                 //SetPixel(hdc,x0 + x, y0 + y,pencol);
-								set(x0 + x, y0 - y,color);
-                set(x0 - x, y0 - y,color);
-								set(x0 + x, y0 + y,color);
-								set(x0 - x, y0 + y,color);
+								set(x0 + x, y0 - y);
+                set(x0 - x, y0 - y);
+								set(x0 + x, y0 + y);
+								set(x0 - x, y0 + y);
                 error = 2 * (delta + y) - 1;
                 if(delta < 0 && error <= 0) {
                         ++x;
@@ -190,7 +202,7 @@ void AvBFlipDots::circle(int x0, int y0, int radius, char color)
         }
 }
 
-void AvBFlipDots::midPointCircle(int x, int y, int radius,int value)
+void AvBFlipDots::midPointCircle(int x, int y, int radius)
 {
 	int rx = 0, ry = radius;
 	double d = 5.0/4.0-radius;
@@ -202,13 +214,13 @@ void AvBFlipDots::midPointCircle(int x, int y, int radius,int value)
 			ry--;
 		}
  		rx++;
-		set(x+rx,y+ry,value);
-		set(x+ry,y+rx,value);
-		set(x-rx,y+ry,value);
-		set(x+ry,y-rx,value);
-		set(x+rx,y-ry,value);
-		set(x-ry,y+rx,value);
-		set(x-rx,y-ry,value);
-		set(x-ry,y-rx,value);
+		set(x+rx,y+ry);
+		set(x+ry,y+rx);
+		set(x-rx,y+ry);
+		set(x+ry,y-rx);
+		set(x+rx,y-ry);
+		set(x-ry,y+rx);
+		set(x-rx,y-ry);
+		set(x-ry,y-rx);
 	}
 }
