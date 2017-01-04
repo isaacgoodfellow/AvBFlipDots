@@ -1,15 +1,5 @@
 #pragma once
 
-int CAP_A_X = 6;
-int CAP_A_Y = 8;
-int CAP_A[6][8] ={
-{1,1,1,1,1,0,0,0},
-{1,1,0,0,0,1,1,1},
-{0,0,1,1,0,1,1,1},
-{0,0,1,1,0,1,1,1},
-{1,1,0,0,0,1,1,1},
-{1,1,1,1,1,0,0,0}};
-
-int TESTX = 1;
-int TESTY = 1;
-int TEST[1][1] ={{1}};
+//Store a 2D image in a 1D array (Used for fonts and stamps, etc)
+uint8_t example_ARR[] = {1,1,1,0};
+ImageBuffer example_image = {example_ARR,4,1};

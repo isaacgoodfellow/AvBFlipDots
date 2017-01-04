@@ -1,34 +1,20 @@
 #include "AvBFlipDots.h"
 #include <math.h>
 
-/*
-	mImage Format
-
-	First three Bytes are reserved for the header
-	Last Byte reserved for the refresh bitset
-	Middle 28 Bytes are each individual Row
-
-	0x7F = All Black [0000 0000 0000 0000 0000 0000 0111 1111]
-	0x00 = All White [0000 0000 0000 0000 0000 0000 0000 0000]
-
-	Set an individual bit with 0x01 << (bit) where (bit < 7) && (bit > -1)
-
-	Roadmap:
-
-	Support Transition Effects
-	Support N Panels
-
-*/
-
-void AvBFlipDots::setup(int refresh){
+AvBFlipDots::AvBFlipDots(int refresh, DrawMode mode){
+	//Set the rate at which we send messages to the RS485 shield
 	mRefreshRate = refresh;
-	mDrawMode = kNormal;
+	mDrawMode = mode;
+
+	//Allocate our image, and swap buffer for transitions
+	mImageBuffer = (uint8_t *)malloc(2*28*14*sizeof(uint8_t));
+	mScreenBuffer = mImageBuffer;
+	mSwapBuffer = mImageBuffer+28*14;
 }
 
 void AvBFlipDots::renderAndWait(){
 	// Write our header and our tail to the bit stream
 	//mImage 0-7 7-14
-
 	byte transfer1[32] = {0x00};
 	transfer1[0] = 0x80;
 	transfer1[1] = 0x85;
@@ -41,6 +27,7 @@ void AvBFlipDots::renderAndWait(){
 	transfer1[31] = 0x8F;
 	Serial.write(transfer1, 32);
 
+	//Second panel: TODO make this more general to accept other types of panel arrangements
 	byte transfer2[32] = {0x00};
 	transfer2[0] = 0x80;
 	transfer2[1] = 0x85;
@@ -57,43 +44,42 @@ void AvBFlipDots::renderAndWait(){
 }
 
 void AvBFlipDots::clear(){
-	for(int x = 0; x < 28; x++){
-		for(int y = 0; y < 14; y++){
-			set(x,y,0);
-		}
+	for(int i = 0; i < 28 * 14; ++i){
+		mScreenBuffer[i] = 0;
 	}
 }
 
-void AvBFlipDots::stamp( int offx, int offy, int** arr, int w, int h){
-
-	int CAP_A[6][8] ={
-	{1,1,1,1,1,0,0,0},
-	{1,1,0,0,0,1,1,1},
-	{0,0,1,1,0,1,1,1},
-	{0,0,1,1,0,1,1,1},
-	{1,1,0,0,0,1,1,1},
-	{1,1,1,1,1,0,0,0}};
-
-
-	for(int x = 0; x < w; x++){
-		for(int y = 0; y < h; y++){
-			set(offx+x,offy+y,(CAP_A[x][y]==0));
-		}
+void AvBFlipDots::swapBuffers(){
+	//Swaps our offscreen buffer with our onscreen buffer
+	if(mSwapBuffer > mScreenBuffer){
+		mScreenBuffer = mSwapBuffer;
+		mSwapBuffer = mImageBuffer;
+	} else {
+		mSwapBuffer = mScreenBuffer;
+		mScreenBuffer = mImageBuffer;
 	}
 }
 
-void AvBFlipDots::fill(char color){
-	mWriteColor = color;
+//TODO: Refactor to use a one dimensional array so that stamp patterns can be passed in
+//'Stamp' an image buffer onto our image
+void AvBFlipDots::stamp( int offx, int offy, ImageBuffer* ib){
+
+	if(ib == NULL) return;
+
+	//TODO figure out the fiddly array logic here later
+	/*
+	for(int i = 0; i < ib->w * ib->h; ++i){
+		set(offx+x,offy+y,ib->mImage[i]);
+	}
+	*/
+
 }
 
-void drawMode(DrawMode mode){
-	mDrawMode = mode;
+void AvBFlipDots::set(int i){
+	//TODO write once the access problem is solved
 }
 
-void AvBFlipDots::set(float x, float y){
-	set((int)x,(int)y,mWriteColor);
-}
-
+//TODO: Research other means of this switch operation (fcn pointers, etc)
 void AvBFlipDots::set(int x,int y){
 	if(x<0 || x>27 || y<0 || y>13) return;
 	switch (mDrawMode) {
@@ -103,6 +89,10 @@ void AvBFlipDots::set(int x,int y){
 		default:
 		mImage[x][y] = mWriteColor;
 	}
+}
+
+void AvBFlipDots::set(float x, float y){
+	set((int)x,(int)y);
 }
 
 void AvBFlipDots::line(int x1,int y1,int const x2,int const y2){
@@ -171,8 +161,8 @@ void AvBFlipDots::rect(int x1,int y1,int const w,int const h){
 	line(w,y1,w,h);
 }
 
-void AvBFlipDots::circle(int x0, int y0, int radius)
-{
+//Circle rasterizing algorithm using same general technique as the line algorithm
+void AvBFlipDots::circle(int x0, int y0, int radius){
         int x = 0;
         int y = radius;
         int delta = 2 - 2 * radius;
@@ -202,8 +192,7 @@ void AvBFlipDots::circle(int x0, int y0, int radius)
         }
 }
 
-void AvBFlipDots::midPointCircle(int x, int y, int radius)
-{
+void AvBFlipDots::midPointCircle(int x, int y, int radius){
 	int rx = 0, ry = radius;
 	double d = 5.0/4.0-radius;
 	while(ry>rx) {
