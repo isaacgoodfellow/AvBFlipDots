@@ -20,6 +20,9 @@
 
 */
 
+#define BLACK 0
+#define WHITE 1
+
 //Blend modes:
 //Normal: Colors the pixel drawn to with mWriteColor
 //Invert: Flips the pixel if mWriteColor is 1
@@ -51,26 +54,28 @@ typedef struct animation{
 class AvBFlipDots{
 
 	int  mRefreshRate;
-	char mImage[28][14];
+	uint8_t mImage[28][14];
 	uint8_t *mImageBuffer;
 	uint8_t *mScreenBuffer;
 	uint8_t *mSwapBuffer;
-	char mWriteColor;
+	uint8_t mWriteColor;
+	uint8_t mClearColor;
 
 	StampMode mStampMode;
 	DrawMode mDrawMode;
 
 	//Contents of the swap buffer are displayed to screen and vise-versa
 	void swapBuffers();
+	void innerFloodFill(int x,int y, int cur, int newc);
 
 public:
 
- 	AvBFlipDots(int refresh = 100, DrawMode mode = kNormal);
+ 	AvBFlipDots(int refresh = 100, uint8_t clearColor = BLACK, DrawMode mode = kNormal);
 	void clear();
-	void setup(int refresh = 100);
 	void drawMode(DrawMode mode){mDrawMode = mode;};
 	void stampMode(StampMode mode){mStampMode = mode;};
-	void fill(char color){mWriteColor= color;};
+	void clearColor(uint8_t color){mClearColor=color;};
+	void fillColor(uint8_t color){mWriteColor= color;};
 	void set(int i);
 	void set(int x,int y);
 	void set(float x, float y);
@@ -79,5 +84,6 @@ public:
 	void renderAndWait();
 	void stamp( int x, int y, ImageBuffer* ib);
 	void circle(int x0, int y0, int radius);
-	void midPointCircle(int x, int y, int radius);
+	void floodFill(int x, int y);
+
 };

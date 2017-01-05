@@ -1,10 +1,12 @@
 #include "AvBFlipDots.h"
 #include <math.h>
 
-AvBFlipDots::AvBFlipDots(int refresh, DrawMode mode){
+AvBFlipDots::AvBFlipDots(int refresh, uint8_t clearColor, DrawMode mode){
 	//Set the rate at which we send messages to the RS485 shield
 	mRefreshRate = refresh;
 	mDrawMode = mode;
+	mClearColor = clearColor;
+	mWriteColor = WHITE;
 
 	//Allocate our image, and swap buffer for transitions
 	mImageBuffer = (uint8_t *)malloc(2*28*14*sizeof(uint8_t));
@@ -13,9 +15,12 @@ AvBFlipDots::AvBFlipDots(int refresh, DrawMode mode){
 }
 
 void AvBFlipDots::renderAndWait(){
+
 	// Write our header and our tail to the bit stream
 	//mImage 0-7 7-14
 	byte transfer1[32] = {0x00};
+		byte transfer2[32] = {0x00};
+
 	transfer1[0] = 0x80;
 	transfer1[1] = 0x85;
 	transfer1[2] = 0x01;
@@ -28,7 +33,6 @@ void AvBFlipDots::renderAndWait(){
 	Serial.write(transfer1, 32);
 
 	//Second panel: TODO make this more general to accept other types of panel arrangements
-	byte transfer2[32] = {0x00};
 	transfer2[0] = 0x80;
 	transfer2[1] = 0x85;
 	transfer2[2] = 0x02;
@@ -44,6 +48,13 @@ void AvBFlipDots::renderAndWait(){
 }
 
 void AvBFlipDots::clear(){
+
+	for(int x = 0; x < 28; ++x){
+		for(int y = 0; y < 14; ++y){
+			mImage[x][y] = mClearColor;
+		}
+	}
+
 	for(int i = 0; i < 28 * 14; ++i){
 		mScreenBuffer[i] = 0;
 	}
@@ -82,6 +93,8 @@ void AvBFlipDots::set(int i){
 //TODO: Research other means of this switch operation (fcn pointers, etc)
 void AvBFlipDots::set(int x,int y){
 	if(x<0 || x>27 || y<0 || y>13) return;
+	mImage[x][y] = mWriteColor;
+	/*
 	switch (mDrawMode) {
 		case kInvert:
 		mImage[x][y] = (mWriteColor==1) ? ((mImage[x][y]+1)%2) : mImage[x][y];
@@ -89,6 +102,7 @@ void AvBFlipDots::set(int x,int y){
 		default:
 		mImage[x][y] = mWriteColor;
 	}
+	*/
 }
 
 void AvBFlipDots::set(float x, float y){
@@ -161,40 +175,37 @@ void AvBFlipDots::rect(int x1,int y1,int const w,int const h){
 	line(w,y1,w,h);
 }
 
-//Circle rasterizing algorithm using same general technique as the line algorithm
-void AvBFlipDots::circle(int x0, int y0, int radius){
-        int x = 0;
-        int y = radius;
-        int delta = 2 - 2 * radius;
-        int error = 0;
-
-        while(y >= 0) {
-                //SetPixel(hdc,x0 + x, y0 + y,pencol);
-								set(x0 + x, y0 - y);
-                set(x0 - x, y0 - y);
-								set(x0 + x, y0 + y);
-								set(x0 - x, y0 + y);
-                error = 2 * (delta + y) - 1;
-                if(delta < 0 && error <= 0) {
-                        ++x;
-                        delta += 2 * x + 1;
-                        continue;
-                }
-                error = 2 * (delta - x) - 1;
-                if(delta > 0 && error > 0) {
-                        --y;
-                        delta += 1 - 2 * y;
-                        continue;
-                }
-                ++x;
-                delta += 2 * (x - y);
-                --y;
-        }
+void AvBFlipDots::floodFill(int x, int y){
+	if (x < 0 || x >= 27 || y < 0 || y >= 14)
+        return;
+    innerFloodFill( x, y, mImage[x][y], mWriteColor);
 }
 
-void AvBFlipDots::midPointCircle(int x, int y, int radius){
+void AvBFlipDots::innerFloodFill( int x, int y, int prevC, int newC)
+{
+    // Base cases
+    if (x < 0 || x >= 27 || y < 0 || y >= 13)
+        return;
+    if (mImage[x][y] != prevC)
+        return;
+ 
+    // Replace the color at (x, y)
+    mImage[x][y] = newC;
+ 
+    // Recur for north, east, south and west
+    innerFloodFill( x+1, y, prevC, newC);
+    innerFloodFill( x-1, y, prevC, newC);
+    innerFloodFill( x, y+1, prevC, newC);
+    innerFloodFill( x, y-1, prevC, newC);
+}
+
+void AvBFlipDots::circle(int x, int y, int radius){
 	int rx = 0, ry = radius;
 	double d = 5.0/4.0-radius;
+	set(x-radius,y);
+	set(x+radius,y);
+	set(x,y+radius);
+	set(x,y-radius);
 	while(ry>rx) {
 		if(d<0){
 			d += 2.0*rx+3.0;
